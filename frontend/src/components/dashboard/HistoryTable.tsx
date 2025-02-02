@@ -39,6 +39,36 @@ export const HistoryTable = () => {
     };
 
     fetchReports();
+
+    // Subscribe to real-time changes
+    const subscription = supabase
+      .channel('reports-realtime')
+      .on(
+        'postgres_changes', 
+        { event: '*', schema: 'public', table: 'table' }, 
+        (payload) => {
+          console.log('Change received:', payload);
+
+          if (payload.eventType === 'INSERT') {
+            setReports((prevReports) => [(payload.new as Report), ...prevReports]);
+          } else if (payload.eventType === 'UPDATE') {
+            setReports((prevReports) =>
+              prevReports.map((report) =>
+                report.id === payload.new.id ? (payload.new as Report) : report
+              )
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setReports((prevReports) =>
+              prevReports.filter((report) => report.id !== payload.old.id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription); // Cleanup subscription on unmount
+    };
   }, []);
 
   const getStatusBadgeClass = (status: Report["status"]) => {
