@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Upload } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export const FileUpload = () => {
   const [dragging, setDragging] = useState(false);
@@ -50,7 +51,26 @@ export const FileUpload = () => {
 
     setUploading(true);
 
-    // Simulate upload delay
+    const uniqueFileName = `${Date.now()}-${file.name}`;
+    const { data, error } = await supabase.storage
+      .from("project_pl_generation")
+      .upload(uniqueFileName, file);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const fileUrl = supabase.storage
+      .from("project_pl_generation")
+      .getPublicUrl(uniqueFileName).data.publicUrl;
+
+    const { error: insertError } = await supabase
+      .from("table")
+      .insert([{ cse_report: fileUrl, status: "pending", created_at: new Date() }]);
+
+    if (insertError) {
+      throw new Error(insertError.message);
+    }
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     try {

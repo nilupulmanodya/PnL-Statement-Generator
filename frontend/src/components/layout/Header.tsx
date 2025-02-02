@@ -15,15 +15,8 @@ export const Header = () => {
         <div className="flex h-16 items-center justify-between">
           <div className="flex-1 flex items-center justify-between">
             <div className="flex-shrink-0">
-              <h1 className="text-xl font-semibold">CSE Reports</h1>
+              <h1 className="text-xl font-semibold">Profit & Loss Reports Generator</h1>
             </div>
-            <Button
-              variant="ghost"
-              onClick={handleLogout}
-              className="text-sm"
-            >
-              Sign out
-            </Button>
           </div>
         </div>
       </div>

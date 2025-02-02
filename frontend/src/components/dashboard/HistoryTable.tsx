@@ -9,19 +9,39 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import { dummyReports } from "@/lib/dummy-data";
+import { supabase } from "@/lib/supabase";
+import { useEffect } from "react";
 
 type Report = {
   id: string;
   created_at: string;
   status: "pending" | "success" | "error";
-  cse_pdf_url: string;
-  report_url: string | null;
+  cse_report: string;
+  pl_report: string | null;
 };
 
 export const HistoryTable = () => {
   const [loading] = useState(false);
-  const reports = dummyReports;
+  const [reports, setReports] = useState<Report[]>([]);
+
+  console.log("reports", reports)
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      const { data, error } = await supabase
+        .from('table')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching reports:', error);
+      } else {
+        setReports(data);
+      }
+    };
+
+    fetchReports();
+  }, []);
 
   const getStatusBadgeClass = (status: Report["status"]) => {
     const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
@@ -58,7 +78,8 @@ export const HistoryTable = () => {
           <TableRow>
             <TableHead>Created At</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Actions</TableHead>
+            <TableHead>CSE Report</TableHead>
+            <TableHead>PnL Report</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -73,11 +94,23 @@ export const HistoryTable = () => {
                 </span>
               </TableCell>
               <TableCell>
-                {report.report_url && (
+                {report.cse_report && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => window.open(report.report_url, "_blank")}
+                    onClick={() => window.open(report.cse_report, "_blank")}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                )}
+              </TableCell>
+              <TableCell>
+                {report.pl_report && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(report.pl_report, "_blank")}
                   >
                     <Download className="w-4 h-4 mr-2" />
                     Download
