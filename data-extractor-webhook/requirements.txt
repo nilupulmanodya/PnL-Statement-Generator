@@ -1,0 +1,8 @@
+flask
+requests
+pdfplumber
+pdf2image
+reportlab
+supabase
+python-dotenv
+openai
