@@ -182,7 +182,10 @@ def _upload_pdf_to_supabase(file_path: str) -> str:
             response = supabase.storage.from_(bucket_name).upload(
                 file=f,
                 path=unique_filename,
-                file_options={"cache-control": "3600", "upsert": "false"}
+                file_options={"cache-control": "3600",
+                            "upsert": "false",
+                            "Content-Type": "application/pdf"
+                            }
             )
 
         public_url = supabase.storage.from_(bucket_name).get_public_url(response.path)
