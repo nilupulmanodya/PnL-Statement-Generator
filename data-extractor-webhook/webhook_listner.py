@@ -1,63 +1,118 @@
-import os
+"""
+Webhook listener for processing CSE reports and generating PnL statements.
+This module handles incoming webhooks, processes PDF reports, and updates the database with results.
+"""
+
+import json
+import logging
+from typing import Tuple
 
 from flask import Flask, request, jsonify
+from flask.wrappers import Response
 
-from utils.get_pdf_text_from_url import get_pdf_text_from_url
-from utils.get_snapshots_from_pdf import get_snapshots_from_pdf
-from utils.generate_pnl_report import generate_pnl_report
-from agents.data_extractor import data_extractor
-from agents.fin_data_extractor import fin_data_extractor
+from utils.extract_pdf_text_from_url import extract_pdf_text_from_url
+from utils.extract_page_images_from_pdf import extract_page_images_from_pdf
+from utils.create_pnl_pdf_report import create_pnl_pdf_report
+# pylint: disable=import-error
 from utils.supabase_client import supabase
-import json
 
+from agents.extract_consolidated_income_statement import extract_consolidated_income_statement
+from agents.pnl_data_extractor import pnl_data_extractor
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    data = request.json
-    cse_report_url = data['record']['cse_report']
-    print("New Record:", data)
-    print("cse_report_url", cse_report_url)
-
-    # Extract text from the PDF URL
-    result = get_pdf_text_from_url(cse_report_url)
-    # print(result['data'][0])
+def update_record_status(record_id: str, status: str, pl_report_url: str = None) -> None:
+    """
+    Update the status and PL report URL in the database.
+    
+    Args:
+        record_id (str): The record identifier
+        status (str): Status to update ('success' or 'error')
+        pl_report_url (str, optional): URL of the generated PL report
+    """
     try:
-        relevant_pages = fin_data_extractor(result)
-        # relevant_pages = {"page_numbers": [3], "status": "relevant"}
-        relevant_pages = json.loads(relevant_pages)
-        if relevant_pages and relevant_pages.get("status") == "relevant":
-            print("relevant_pages", relevant_pages)
-            consolidate_statement_snapshots = get_snapshots_from_pdf(cse_report_url, relevant_pages.get("page_numbers"))
-            
-            # fields = fields_extractor(consolidate_statement_snapshots)
-            extracted_content = [
-                item["content"] for item in result['data'] if item["page_number"] in relevant_pages["page_numbers"]
-            ]
+        update_data = {'status': status}
+        if pl_report_url:
+            update_data['pl_report'] = pl_report_url
 
-            print('extracted_content>>>>>>>>>>>>>>>',extracted_content)
+        supabase.table('table').update(update_data).eq('id', record_id).execute()
+    except (ValueError, TypeError, ConnectionError) as e:
+        logger.error("Failed to update record status: %s", e)
 
-            final_json = json.loads(data_extractor(consolidate_statement_snapshots, extracted_content))
-            
+@app.route('/webhook', methods=['POST'])
+def process_cse_report() -> Tuple[Response, int]:
+    """
+    Process incoming CSE reports and generate PnL statements.
+    
+    Returns:
+        tuple: JSON response and HTTP status code
+    """
+    try:
+        webhook_data = request.json
+        record_id = webhook_data['record']['id']
+        cse_report_url = webhook_data['record']['cse_report']
 
-            print("Final JSON:", final_json)
-            uploaded_url = generate_pnl_report(final_json,"output-report.pdf",relevant_pages.get("company_name"))
+        logger.info("Processing CSE report for record ID: %s", record_id)
 
+        # Extract PDF text
+        pdf_text_result = extract_pdf_text_from_url(cse_report_url)
 
-            # Update the table with the URL for pl_report
-            update_response = supabase.table('table').update({'pl_report': uploaded_url, 'status': 'success'}).eq('id',data['record']['id']).execute()
-            print("Update Response:", update_response)
+        # Process consolidated income statement
+        relevant_pages = json.loads(extract_consolidated_income_statement(pdf_text_result))
 
-            return jsonify({"page_numbers": [], "status": "relevant"}), 200
-        else:
-            print("Not relevant")
-            return jsonify({"page_numbers": [], "status": "not relevant"}), 200
-    except Exception as e:
-        print("Error:", e)
-        return jsonify({"page_numbers": [], "status": "not relevant"}), 200
-    # os.system("python your_script.py")
+        if not relevant_pages or relevant_pages.get("status") != "relevant":
+            logger.info("No relevant pages found for record ID: %s", record_id)
+            update_record_status(record_id, 'error')
+            return jsonify({"status": "not_relevant", "message": "No relevant pages found"}), 200
 
+        # Extract images from relevant pages
+        page_numbers = relevant_pages.get("page_numbers")
+        company_name = relevant_pages.get("company_name")
+
+        consolidate_statement_snapshots = extract_page_images_from_pdf(
+            cse_report_url,
+            page_numbers
+        )
+
+        # Extract relevant content
+        extracted_content = [
+            item["content"] for item in pdf_text_result['data']
+            if item["page_number"] in page_numbers
+        ]
+
+        # Generate final report
+        final_data = json.loads(pnl_data_extractor(
+            consolidate_statement_snapshots,
+            extracted_content
+        ))
+
+        report_filename = f"{company_name}_pnl_report.pdf"
+        uploaded_url = create_pnl_pdf_report(
+            final_data,
+            report_filename,
+            company_name
+        )
+
+        # Update record with success status
+        update_record_status(record_id, 'success', uploaded_url)
+
+        return jsonify({
+            "status": "success",
+            "message": "PnL report generated successfully"
+        }), 200
+
+    except (json.JSONDecodeError, ValueError, IOError, ConnectionError) as e:
+        logger.error("Error processing webhook: %s", str(e))
+        if 'record_id' in locals():
+            update_record_status(record_id, 'error')
+        return jsonify({
+            "status": "error",
+            "message": "Failed to process report"
+        }), 500
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
