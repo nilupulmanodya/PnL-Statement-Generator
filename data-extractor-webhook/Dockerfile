@@ -19,9 +19,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY . .
 
 # Expose the port Flask will run on
-EXPOSE 5000
+EXPOSE 8080
 
 # Ensure the correct working directory and command
-# CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "webhook_listner:app"]
-# CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "--timeout", "120", "--log-level", "debug", "webhook_listner:app"]
 CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8080", "webhook_listner:app"]
