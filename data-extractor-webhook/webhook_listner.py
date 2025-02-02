@@ -90,7 +90,7 @@ def process_cse_report() -> Tuple[Response, int]:
             extracted_content
         ))
 
-        report_filename = f"{company_name}_pnl_report.pdf"
+        report_filename = "output-report.pdf"
         uploaded_url = create_pnl_pdf_report(
             final_data,
             report_filename,
