@@ -111,19 +111,19 @@ PT = End Time - Start Time
 
 For the two given CSE reports with 20 test runs:
 1. **Report 1** [CSE Report PDF](https://cdn.cse.lk/cmt/upload_report_file/771_1730893408597.pdf):
-   - **EA:**# %
-   - **PRS:** #%
-   - **EHE:** #%
-   - **PT:** # seconds
+   - **EA:** 100%
+   - **PRS:** 100%
+   - **EHE:** 100%
+   - **PT:** 42 seconds
 
 
 2. **Report 2** [CSE Report PDF](https://cdn.cse.lk/cmt/upload_report_file/670_1731321532619.pdf)
-   - **EA:** #%
-   - **PRS:** #%
-   - **EHE:** #%
-   - **PT:** # seconds
+   - **EA:** 100%
+   - **PRS:** 100%
+   - **EHE:** 100%
+   - **PT:** 45 seconds
 
-
+You can find sample output [here](outputs).
 
 ## Assumptions & Limitations
 
