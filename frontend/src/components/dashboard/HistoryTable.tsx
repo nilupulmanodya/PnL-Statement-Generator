@@ -23,9 +23,7 @@ type Report = {
 export const HistoryTable = () => {
   const [loading] = useState(false);
   const [reports, setReports] = useState<Report[]>([]);
-
-  console.log("reports", reports)
-
+  
   useEffect(() => {
     const fetchReports = async () => {
       const { data, error } = await supabase
